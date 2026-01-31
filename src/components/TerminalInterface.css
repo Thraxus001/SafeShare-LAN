@@ -1,0 +1,431 @@
+/* src/components/TerminalInterface.css */
+.terminal-interface {
+    background: var(--dark-bg);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Terminal Header */
+.terminal-header {
+    background: linear-gradient(135deg, #1a1b26, #24283b);
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.terminal-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #a9b1d6;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.terminal-icon {
+    font-size: 1.3rem;
+}
+
+.terminal-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 15px;
+    font-size: 0.8rem;
+    font-weight: normal;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px 10px;
+    border-radius: 12px;
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.status-indicator.connected {
+    background: #2ecc71;
+    box-shadow: 0 0 8px #2ecc71;
+    animation: pulse 2s infinite;
+}
+
+.status-indicator.disconnected {
+    background: #e74c3c;
+}
+
+.status-indicator.configuring {
+    background: #f39c12;
+    animation: pulse 1s infinite;
+}
+
+.terminal-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-control {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-size: 0.7rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: transparent;
+    transition: all 0.3s;
+}
+
+.btn-control:hover {
+    transform: scale(1.2);
+}
+
+.btn-control.minimize {
+    background: #f39c12;
+}
+
+.btn-control.maximize {
+    background: #2ecc71;
+}
+
+.btn-control.close {
+    background: #e74c3c;
+}
+
+/* Terminal Body */
+.terminal-body {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.terminal-content {
+    min-height: 100%;
+}
+
+/* Terminal Lines */
+.terminal-line {
+    margin-bottom: 12px;
+    padding: 8px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.terminal-line:last-child {
+    border-bottom: none;
+}
+
+.terminal-line.system {
+    color: #9ece6a;
+}
+
+.terminal-line.user {
+    color: #7aa2f7;
+}
+
+.terminal-line.error {
+    color: #f7768e;
+}
+
+.terminal-line.processing {
+    color: #e0af68;
+}
+
+.prompt {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.prompt .user {
+    color: #bb9af7;
+    font-weight: 600;
+}
+
+.prompt .path {
+    color: #7dcfff;
+}
+
+.prompt .symbol {
+    color: #f7768e;
+    font-weight: bold;
+}
+
+.line-text {
+    flex: 1;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.line-segment {
+    margin-bottom: 4px;
+}
+
+.line-segment:last-child {
+    margin-bottom: 0;
+}
+
+.line-time {
+    color: #565f89;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+/* Processing Indicator */
+.processing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #e0af68;
+}
+
+.spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Auto-complete Suggestions */
+.autocomplete-suggestions {
+    background: rgba(30, 31, 41, 0.9);
+    border: 1px solid rgba(122, 162, 247, 0.3);
+    border-radius: 6px;
+    margin: 10px 0;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+}
+
+.suggestion {
+    padding: 10px 15px;
+    cursor: pointer;
+    color: #c0caf5;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.2s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.suggestion:last-child {
+    border-bottom: none;
+}
+
+.suggestion:hover {
+    background: rgba(122, 162, 247, 0.1);
+}
+
+.suggestion.selected {
+    background: rgba(122, 162, 247, 0.2);
+    color: #7aa2f7;
+}
+
+.suggestion-desc {
+    font-size: 0.85rem;
+    color: #565f89;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Terminal Input Area */
+.terminal-input-area {
+    display: flex;
+    align-items: center;
+    background: rgba(30, 31, 41, 0.8);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 15px 20px;
+    backdrop-filter: blur(10px);
+}
+
+.input-prefix {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-right: 10px;
+    flex-shrink: 0;
+    color: #c0caf5;
+    font-weight: 600;
+}
+
+.input-prefix .user {
+    color: #bb9af7;
+}
+
+.input-prefix .separator {
+    color: #7aa2f7;
+}
+
+.input-prefix .path {
+    color: #7dcfff;
+}
+
+.input-prefix .symbol {
+    color: #f7768e;
+    margin-left: 5px;
+}
+
+.terminal-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #c0caf5;
+    font-family: 'Monaco', 'Consolas', monospace;
+    font-size: 1rem;
+    outline: none;
+    padding: 8px 0;
+}
+
+.terminal-input::placeholder {
+    color: #565f89;
+}
+
+/* Terminal Footer */
+.terminal-footer {
+    background: rgba(26, 27, 38, 0.9);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    backdrop-filter: blur(10px);
+}
+
+.quick-commands {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.footer-title {
+    color: #565f89;
+    font-size: 0.85rem;
+    margin-right: 5px;
+}
+
+.quick-cmd {
+    background: rgba(122, 162, 247, 0.1);
+    color: #7aa2f7;
+    border: 1px solid rgba(122, 162, 247, 0.3);
+    padding: 5px 12px;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.quick-cmd:hover:not(:disabled) {
+    background: rgba(122, 162, 247, 0.2);
+    transform: translateY(-1px);
+}
+
+.quick-cmd:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.terminal-info {
+    display: flex;
+    gap: 20px;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+}
+
+.info-label {
+    color: #565f89;
+}
+
+.info-value {
+    color: #9ece6a;
+    font-family: 'Monaco', 'Courier New', monospace;
+}
+
+/* Animations */
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Scrollbar Styling for Terminal */
+.terminal-body::-webkit-scrollbar {
+    width: 10px;
+}
+
+.terminal-body::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.terminal-body::-webkit-scrollbar-thumb {
+    background: rgba(122, 162, 247, 0.3);
+    border-radius: 5px;
+}
+
+.terminal-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(122, 162, 247, 0.5);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .terminal-footer {
+        flex-direction: column;
+        gap: 15px;
+        align-items: stretch;
+    }
+
+    .quick-commands {
+        justify-content: center;
+    }
+
+    .terminal-info {
+        justify-content: center;
+    }
+
+    .input-prefix {
+        font-size: 0.9rem;
+    }
+
+    .terminal-input {
+        font-size: 0.9rem;
+    }
+}

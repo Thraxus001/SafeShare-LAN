@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#667eea" />
+    <meta name="description" content="Direct Ethernet File Transfer App - No Configuration Needed" />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap"
+        rel="stylesheet">
+
+    <title>SafeShare - Direct Ethernet File Transfer</title>
+
+    <style>
+        /* Loading screen */
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease-out;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 20px;
+        }
+
+        .loading-text {
+            color: white;
+            font-size: 1.2rem;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .loading-subtext {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9rem;
+            font-family: 'Inter', sans-serif;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Hide loading when app loads */
+        .loaded #loading {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+
+    <!-- Loading screen -->
+    <div id="loading">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">SafeShare</div>
+        <div class="loading-subtext">Direct Ethernet File Transfer</div>
+    </div>
+
+    <!-- React app container -->
+    <div id="root"></div>
+
+    <!-- Electron preload script -->
+    <script>
+        // Wait for DOM to load
+        document.addEventListener('DOMContentLoaded', () => {
+            // Add loaded class to body when app is ready
+            setTimeout(() => {
+                document.body.classList.add('loaded');
+            }, 1000);
+
+            // Expose Electron API if available
+            if (window.electron) {
+                window.ipcRenderer = window.electron.ipcRenderer;
+                window.shell = window.electron.shell;
+            }
+
+            // Network detection simulation
+            window.simulateNetwork = {
+                async detectInterfaces() {
+                    return new Promise(resolve => {
+                        setTimeout(() => {
+                            resolve([
+                                {
+                                    name: 'Ethernet',
+                                    type: 'wired',
+                                    connected: true,
+                                    ip: '169.254.45.12',
+                                    mac: '00:1A:2B:3C:4D:5E',
+                                    speed: '1 Gbps'
+                                },
+                                {
+                                    name: 'Wi-Fi',
+                                    type: 'wireless',
+                                    connected: false,
+                                    ip: '',
+                                    mac: '00:1A:2B:3C:4D:5F',
+                                    speed: '0 Mbps'
+                                }
+                            ]);
+                        }, 500);
+                    });
+                },
+
+                async configureIP(interfaceName) {
+                    return new Promise(resolve => {
+                        setTimeout(() => {
+                            resolve({
+                                success: true,
+                                ip: '169.254.45.12',
+                                subnet: '255.255.0.0',
+                                gateway: ''
+                            });
+                        }, 300);
+                    });
+                },
+
+                async discoverPeer() {
+                    return new Promise(resolve => {
+                        setTimeout(() => {
+                            resolve({
+                                success: true,
+                                peerIP: '169.254.45.13',
+                                peerName: 'Computer-2',
+                                protocol: 'TCP/9001'
+                            });
+                        }, 1000);
+                    });
+                }
+            };
+
+            // File transfer simulation
+            window.simulateTransfer = {
+                async sendFile(filePath, destinationIP) {
+                    return new Promise((resolve) => {
+                        const progress = { current: 0, total: 100 };
+                        const interval = setInterval(() => {
+                            progress.current += 10;
+                            if (progress.current >= 100) {
+                                clearInterval(interval);
+                                resolve({
+                                    success: true,
+                                    filePath,
+                                    size: Math.floor(Math.random() * 1000000) + 100000,
+                                    transferTime: Math.floor(Math.random() * 5000) + 1000
+                                });
+                            }
+                        }, 200);
+                    });
+                },
+
+                async receiveFile(port) {
+                    return new Promise(resolve => {
+                        setTimeout(() => {
+                            resolve({
+                                success: true,
+                                port,
+                                ready: true
+                            });
+                        }, 500);
+                    });
+                }
+            };
+        });
+    </script>
+</body>
+
+</html>

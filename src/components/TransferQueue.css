@@ -1,0 +1,590 @@
+/* src/components/TransferQueue.css */
+.transfer-queue {
+    background: white;
+    border-radius: 12px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--border-color);
+}
+
+/* Header */
+.queue-header {
+    padding: 20px;
+    border-bottom: 2px solid var(--border-color);
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+}
+
+.queue-header h3 {
+    margin: 0 0 15px 0;
+    color: var(--text-primary);
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.queue-icon {
+    font-size: 1.5rem;
+}
+
+.queue-count {
+    font-size: 0.8rem;
+    background: var(--primary-color);
+    color: white;
+    padding: 3px 10px;
+    border-radius: 12px;
+    margin-left: 10px;
+}
+
+.queue-stats {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.stat-card {
+    flex: 1;
+    min-width: 120px;
+    background: white;
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.stat-icon {
+    font-size: 1.8rem;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--light-bg);
+    border-radius: 8px;
+}
+
+.stat-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-value {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* Controls */
+.queue-controls {
+    padding: 15px 20px;
+    background: var(--light-bg);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.controls-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.filter-group,
+.sort-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.filter-label,
+.sort-label {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.filter-buttons {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 6px 14px;
+    border: 1px solid var(--border-color);
+    background: white;
+    color: var(--text-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.3s;
+    font-weight: 500;
+}
+
+.filter-btn:hover {
+    background: #f8f9fa;
+    border-color: var(--primary-color);
+}
+
+.filter-btn.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    box-shadow: 0 2px 4px rgba(52, 152, 219, 0.2);
+}
+
+.btn-icon {
+    font-size: 1rem;
+}
+
+.sort-buttons {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.sort-btn {
+    padding: 6px 12px;
+    border: 1px solid var(--border-color);
+    background: white;
+    color: var(--text-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.3s;
+}
+
+.sort-btn:hover {
+    background: var(--light-bg);
+}
+
+.sort-btn.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.sort-icon {
+    font-size: 0.8rem;
+}
+
+.controls-right {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.control-btn {
+    padding: 8px 16px;
+    border: 1px solid var(--border-color);
+    background: white;
+    color: var(--text-primary);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s;
+}
+
+.control-btn:hover:not(:disabled) {
+    background: var(--light-bg);
+    transform: translateY(-1px);
+}
+
+.control-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.control-btn.danger {
+    color: var(--error-color);
+    border-color: rgba(231, 76, 60, 0.3);
+    background: rgba(231, 76, 60, 0.1);
+}
+
+.control-btn.danger:hover:not(:disabled) {
+    background: rgba(231, 76, 60, 0.2);
+}
+
+/* Queue Content */
+.queue-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+}
+
+.queue-table {
+    width: 100%;
+}
+
+.table-header {
+    display: flex;
+    padding: 12px 20px;
+    background: rgba(0, 0, 0, 0.02);
+    border-bottom: 2px solid var(--border-color);
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.table-cell {
+    padding: 0 10px;
+}
+
+.table-cell.actions {
+    text-align: center;
+}
+
+.header-btn {
+    background: none;
+    border: none;
+    color: inherit;
+    font-weight: inherit;
+    font-size: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.3s;
+}
+
+.header-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.table-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.table-row {
+    display: flex;
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border-color);
+    transition: all 0.3s;
+    align-items: center;
+}
+
+.table-row:hover {
+    background: var(--light-bg);
+}
+
+.table-row.active {
+    background: rgba(52, 152, 219, 0.05);
+    border-left: 3px solid var(--info-color);
+}
+
+/* Transfer Info */
+.transfer-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.transfer-icon {
+    font-size: 1.5rem;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--light-bg);
+    border-radius: 8px;
+}
+
+.transfer-details {
+    flex: 1;
+}
+
+.transfer-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.transfer-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.meta-separator {
+    opacity: 0.5;
+}
+
+.transfer-speed {
+    color: var(--success-color);
+    font-weight: 600;
+}
+
+/* Transfer Size */
+.transfer-size {
+    font-family: 'Monaco', 'Courier New', monospace;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+/* Transfer Progress */
+.transfer-progress {
+    width: 100%;
+}
+
+.progress-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.progress-bar {
+    flex: 1;
+    height: 8px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    min-width: 40px;
+    text-align: right;
+}
+
+/* Transfer Status */
+.transfer-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+/* Transfer Actions */
+.transfer-actions {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+}
+
+.action-btn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border-color);
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+    font-size: 0.9rem;
+}
+
+.action-btn:hover {
+    background: var(--light-bg);
+    transform: translateY(-1px);
+}
+
+.action-btn.danger {
+    color: var(--error-color);
+    border-color: rgba(231, 76, 60, 0.3);
+}
+
+.action-btn.danger:hover {
+    background: rgba(231, 76, 60, 0.1);
+}
+
+.action-btn.success {
+    color: var(--success-color);
+    border-color: rgba(46, 204, 113, 0.3);
+}
+
+.action-btn.success:hover {
+    background: rgba(46, 204, 113, 0.1);
+}
+
+/* Empty Queue */
+.empty-queue {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.empty-icon {
+    font-size: 3.5rem;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.empty-queue h4 {
+    color: var(--text-secondary);
+    margin: 0 0 10px 0;
+    font-size: 1.2rem;
+}
+
+.empty-queue p {
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+    font-size: 0.95rem;
+}
+
+.clear-filter-btn {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.3s;
+}
+
+.clear-filter-btn:hover {
+    background: var(--secondary-color);
+    transform: translateY(-1px);
+}
+
+/* Queue Summary */
+.queue-summary {
+    padding: 15px 20px;
+    background: var(--light-bg);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.summary-left,
+.summary-right {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.summary-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.summary-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.summary-value {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+/* Scrollbar */
+.queue-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.queue-content::-webkit-scrollbar-track {
+    background: var(--light-bg);
+}
+
+.queue-content::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+.queue-content::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-color);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .queue-table {
+        min-width: 800px;
+    }
+
+    .queue-content {
+        overflow-x: auto;
+    }
+}
+
+@media (max-width: 768px) {
+    .queue-header {
+        padding: 15px;
+    }
+
+    .queue-stats {
+        flex-direction: column;
+    }
+
+    .stat-card {
+        min-width: 100%;
+    }
+
+    .queue-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .controls-left,
+    .controls-right {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .sort-buttons {
+        justify-content: center;
+    }
+
+    .queue-summary {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .summary-left,
+    .summary-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+}
