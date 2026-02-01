@@ -22,3 +22,6 @@ build/
 
 # Antigravity Brain
 .gemini/antigravity/brain/
+
+# Distribution Repository
+distribution/
