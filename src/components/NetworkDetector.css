@@ -236,6 +236,141 @@
     border: 2px dashed var(--border-color);
 }
 
+/* Peers Grid */
+.peers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.peer-card {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    background: var(--light-bg);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    gap: 12px;
+}
+
+.peer-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    background: white;
+}
+
+.peer-card.selected {
+    border-color: var(--primary-color);
+    background: rgba(102, 126, 234, 0.05);
+}
+
+.peer-checkbox {
+    pointer-events: none;
+}
+
+.peer-checkbox input {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.peer-icon {
+    font-size: 1.8rem;
+}
+
+.peer-info {
+    flex: 1;
+    overflow: hidden;
+}
+
+.peer-name {
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.peer-ip {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-family: 'Monaco', monospace;
+}
+
+.peer-status {
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--text-secondary);
+}
+
+.peer-card.selected .peer-status {
+    background: var(--primary-color);
+    color: white;
+}
+
+/* Broadcast Toggle */
+.broadcast-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--light-bg);
+    padding: 8px 15px;
+    border-radius: 30px;
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s;
+    user-select: none;
+}
+
+.broadcast-toggle:hover {
+    border-color: var(--primary-color);
+}
+
+.broadcast-toggle.active {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    border-color: transparent;
+}
+
+.toggle-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.toggle-switch {
+    width: 34px;
+    height: 18px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    position: relative;
+    transition: 0.3s;
+}
+
+.broadcast-toggle.active .toggle-switch {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.toggle-handle {
+    width: 14px;
+    height: 14px;
+    background: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: 0.3s;
+}
+
+.broadcast-toggle.active .toggle-handle {
+    left: 18px;
+}
+
 /* IP Configuration */
 .ip-configuration {
     margin-bottom: 25px;

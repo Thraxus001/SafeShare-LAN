@@ -306,19 +306,20 @@ ipcMain.handle('discover-peer', async () => {
     }
 });
 
-// Transfer Files process lock
-let batchTransferActive = false;
+// Transfer Files process lock - now granular per peer to allow broadcasting
+const activeTransferPeers = new Set();
 
 ipcMain.handle('transfer-files', async (event, data) => {
     console.log('Transfer requested', data);
 
-    if (batchTransferActive) {
-        return { success: false, error: 'A transfer is already in progress. Please wait.' };
+    const peerIP = data.peerIP;
+    if (activeTransferPeers.has(peerIP)) {
+        return { success: false, error: `A transfer to ${peerIP} is already in progress.` };
     }
 
     if (!data.files || data.files.length === 0) return { success: false, error: 'No files provided' };
 
-    batchTransferActive = true;
+    activeTransferPeers.add(peerIP);
     try {
         // Use the ID provided by frontend, or generate one if missing
         const batchId = data.transferId || `send_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
@@ -346,7 +347,7 @@ ipcMain.handle('transfer-files', async (event, data) => {
         console.error('Batch transfer failed', error);
         return { success: false, error: error.message };
     } finally {
-        batchTransferActive = false;
+        activeTransferPeers.delete(peerIP);
     }
 });
 

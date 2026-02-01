@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './FileTransfer.css';
 
-const FileTransfer = ({ connectionStatus, peerIP, mode, onTransferStart, activeTransfer, history }) => {
+const FileTransfer = ({ connectionStatus, peerIP, selectedPeers, isBroadcast, mode, onTransferStart, activeTransfer, history }) => {
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [isDragging, setIsDragging] = useState(false);
     const [transferHistory, setTransferHistory] = useState([]);
@@ -127,7 +127,8 @@ const FileTransfer = ({ connectionStatus, peerIP, mode, onTransferStart, activeT
                 path: f.file.path // Required for Electron to read file
             })),
             totalSize: calculateTotalSize(),
-            peerIP: peerIP,
+            peerIP: isBroadcast ? selectedPeers[0] : peerIP, // Base IP (App.js handles loop)
+            selectedPeers: isBroadcast ? selectedPeers : [peerIP],
             timestamp: new Date()
         };
 
@@ -169,13 +170,15 @@ const FileTransfer = ({ connectionStatus, peerIP, mode, onTransferStart, activeT
                 <h2>
                     <span className="header-icon">📁</span>
                     File Transfer
-                    <span className="transfer-mode">{mode === 'sender' ? 'Sending' : 'Receiving'}</span>
+                    <span className="transfer-mode">
+                        {isBroadcast ? 'Broadcast (Full-Duplex)' : (mode === 'sender' ? 'Sending' : 'Receiving')}
+                    </span>
                 </h2>
                 <div className="connection-status">
                     {connectionStatus === 'connected' ? (
                         <div className="connected-info">
                             <span className="status-dot connected"></span>
-                            Connected to {peerIP}
+                            {isBroadcast ? `${selectedPeers.length} Targets Selected` : `Connected to ${peerIP}`}
                         </div>
                     ) : (
                         <div className="disconnected-info">
@@ -315,13 +318,13 @@ const FileTransfer = ({ connectionStatus, peerIP, mode, onTransferStart, activeT
             {/* Transfer Controls */}
             <div className="transfer-controls">
                 <button
-                    className={`btn-transfer ${connectionStatus !== 'connected' || selectedFiles.length === 0 || mode === 'receiver' ? 'disabled' : ''}`}
+                    className={`btn-transfer ${(connectionStatus !== 'connected' || selectedPeers.length === 0 || (mode === 'receiver' && !isBroadcast)) ? 'disabled' : ''}`}
                     onClick={startTransfer}
-                    disabled={connectionStatus !== 'connected' || selectedFiles.length === 0 || mode === 'receiver'}
-                    title={mode === 'receiver' ? 'Switch to Sender mode to send files' : ''}
+                    disabled={connectionStatus !== 'connected' || selectedPeers.length === 0 || (mode === 'receiver' && !isBroadcast)}
+                    title={mode === 'receiver' && !isBroadcast ? 'Switch to Sender mode or enable Broadcast to send files' : ''}
                 >
-                    {mode === 'sender' ? '📤 Send Files' : '📥 Waiting for Files...'}
-                    {mode === 'sender' && selectedFiles.length > 0 && ` (${selectedFiles.length})`}
+                    {isBroadcast ? `📡 Broadcast to ${selectedPeers.length} Devices` : (mode === 'sender' ? '📤 Send Files' : '📥 Waiting for Files...')}
+                    {selectedPeers.length > 0 && ` (${selectedFiles.length} files)`}
                 </button>
 
                 <div className="transfer-actions">
@@ -398,4 +401,4 @@ const FileTransfer = ({ connectionStatus, peerIP, mode, onTransferStart, activeT
     );
 };
 
-export default FileTransfer;
+export default React.memo(FileTransfer);

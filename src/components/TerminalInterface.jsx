@@ -4,9 +4,8 @@ import './TerminalInterface.css';
 
 const TerminalInterface = ({ addLog, connectionStatus, peerIP, localIP, speed }) => {
     const [commandHistory, setCommandHistory] = useState([
-        { type: 'system', text: 'Welcome to EtherLink Terminal v1.0', time: new Date() },
-        { type: 'system', text: 'Type "help" for available commands', time: new Date() },
-        { type: 'system', text: 'Network interface detected: Ethernet', time: new Date() }
+        { type: 'system', text: 'SafeShare Terminal v2.0 initialized', time: new Date() },
+        { type: 'system', text: 'Ready for secure file transfers', time: new Date() }
     ]);
 
     const [inputValue, setInputValue] = useState('');
@@ -18,11 +17,7 @@ const TerminalInterface = ({ addLog, connectionStatus, peerIP, localIP, speed })
     const terminalEndRef = useRef(null);
     const inputRef = useRef(null);
 
-    // Auto-scroll to bottom
-    useEffect(() => {
-        scrollToBottom();
-    }, [commandHistory]);
-
+    // Transfer history is managed by parent via props
     // Focus input on load
     useEffect(() => {
         inputRef.current?.focus();
@@ -522,4 +517,4 @@ IP Configuration:
     );
 };
 
-export default TerminalInterface;
+export default React.memo(TerminalInterface);

@@ -521,7 +521,10 @@ class ElectronBridge {
         if (!this.listeners.has(event)) {
             this.listeners.set(event, []);
         }
-        this.listeners.get(event).push(callback);
+        const callbacks = this.listeners.get(event);
+        if (callbacks.indexOf(callback) === -1) {
+            callbacks.push(callback);
+        }
     }
 
     off(event, callback) {
@@ -531,6 +534,18 @@ class ElectronBridge {
             if (index > -1) {
                 callbacks.splice(index, 1);
             }
+        }
+    }
+
+    removeListener(event, callback) {
+        this.off(event, callback);
+    }
+
+    removeAllListeners(event) {
+        if (event) {
+            this.listeners.delete(event);
+        } else {
+            this.listeners.clear();
         }
     }
 

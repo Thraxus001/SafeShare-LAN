@@ -104,7 +104,12 @@ class NetworkManager {
             });
 
             socket.connect(TRANSFER_PORT, peerIP, () => {
-                const meta = JSON.stringify({ transferId, name: fileName, size: fileSize }) + '\n';
+                const meta = JSON.stringify({
+                    transferId,
+                    name: fileName,
+                    size: fileSize,
+                    senderName: os.hostname()
+                }) + '\n';
 
                 // Wait for metadata to be flushed to kernel before starting pipeline
                 // This prevents race conditions where binaries might look like metadata
@@ -125,7 +130,8 @@ class NetworkManager {
                                 progress: progress,
                                 sent: transferred,
                                 total: fileSize,
-                                speed: Number(speed.toFixed(2))
+                                speed: Number(speed.toFixed(2)),
+                                peerIP: peerIP
                             });
 
                             lastUpdate = now;
@@ -150,7 +156,8 @@ class NetworkManager {
                                     this.mainWindow.webContents.send('transfer-complete', {
                                         transferId,
                                         filename: fileName,
-                                        status: 'completed'
+                                        status: 'completed',
+                                        peerIP: peerIP
                                     });
                                 }
                                 resolve({ success: true });
@@ -163,9 +170,6 @@ class NetworkManager {
             socket.on('error', (err) => {
                 console.error('Send socket error:', err);
                 if (transferFinished) return;
-                transferFinished = true;
-                this.activeTransfers.delete(transferId);
-                reject(err);
                 transferFinished = true;
                 this.activeTransfers.delete(transferId);
                 reject(err);
@@ -342,14 +346,22 @@ class NetworkManager {
 
             const data = JSON.parse(msg.toString());
             if (data.type === 'discovery') {
-                const peer = { ip: rinfo.address, name: data.name, os: data.os, lastSeen: Date.now() };
-                if (!this.peers.has(peer.ip)) {
+                const peer = {
+                    ip: rinfo.address,
+                    name: data.name,
+                    os: data.os,
+                    lastSeen: Date.now(),
+                    lastUpdate: Date.now()
+                };
+
+                const existing = this.peers.get(peer.ip);
+                if (!existing || existing.name !== peer.name) {
                     this.peers.set(peer.ip, peer);
                     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
                         this.mainWindow.webContents.send('peer-discovered', peer);
                     }
                 } else {
-                    this.peers.get(peer.ip).lastSeen = Date.now();
+                    existing.lastSeen = Date.now();
                 }
             }
         } catch (e) { }
@@ -426,9 +438,21 @@ class NetworkManager {
 
                 try {
                     const meta = JSON.parse(metaBuffer.slice(0, newlineIndex).toString());
+                    if (meta.transferId) {
+                        // Remove the temporary ID and set the real one
+                        this.activeTransfers.delete(transferId);
+                        transferId = meta.transferId;
+                        this.activeTransfers.set(transferId, {
+                            socket,
+                            cancel: () => {
+                                if (transferFinished) return;
+                                transferFinished = true;
+                                socket.destroy();
+                            }
+                        });
+                    }
                     const fileName = path.basename(meta.name);
-                    const fileSize = meta.size;
-                    if (meta.transferId) transferId = meta.transferId;
+                    const fileSize = meta.size || 0;
                     const fullPath = path.join(this.downloadsDir, fileName);
 
                     if (fs.existsSync(fullPath)) {
@@ -443,7 +467,15 @@ class NetworkManager {
                             const progress = Math.min(100, Math.floor((transferred / fileSize) * 100));
                             const speed = ((transferred - lastBytes) / (delta / 1000)) / (1024 * 1024);
                             this.mainWindow.webContents.send('transfer-progress', {
-                                transferId, status: 'receiving', filename: fileName, progress, received: transferred, total: fileSize, speed: Number(speed.toFixed(2))
+                                transferId,
+                                status: 'receiving',
+                                filename: fileName,
+                                progress,
+                                received: transferred,
+                                total: fileSize,
+                                speed: Number(speed.toFixed(2)),
+                                senderName: meta.senderName || 'Unknown Device',
+                                peerIP: socket.remoteAddress
                             });
                             lastUpdate = now;
                             lastBytes = transferred;
@@ -453,7 +485,15 @@ class NetworkManager {
                     // Send immediate "receiving" status so UI registers the file even if small
                     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
                         this.mainWindow.webContents.send('transfer-progress', {
-                            transferId, status: 'receiving', filename: fileName, progress: 0, received: 0, total: fileSize, speed: 0
+                            transferId,
+                            status: 'receiving',
+                            filename: fileName,
+                            progress: 0,
+                            received: 0,
+                            total: fileSize,
+                            speed: 0,
+                            senderName: meta.senderName || 'Unknown Device',
+                            peerIP: socket.remoteAddress
                         });
                     }
 
@@ -484,7 +524,13 @@ class NetworkManager {
                             }
                         } else {
                             if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-                                this.mainWindow.webContents.send('transfer-complete', { transferId, filename: fileName, path: fullPath });
+                                this.mainWindow.webContents.send('transfer-complete', {
+                                    transferId,
+                                    filename: fileName,
+                                    path: fullPath,
+                                    senderName: meta.senderName || 'Unknown Device',
+                                    peerIP: socket.remoteAddress
+                                });
                             }
                         }
                     });

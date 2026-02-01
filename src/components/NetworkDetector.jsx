@@ -2,11 +2,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './NetworkDetector.css';
 
-const NetworkDetector = ({ onConnectionUpdate, mode }) => {
+const NetworkDetector = ({ onConnectionUpdate, mode, isBroadcast, onToggleBroadcast, selectedPeers, onSelectPeers }) => {
     const [connectionStatus, setConnectionStatus] = useState('disconnected');
     const [ipAddress, setIpAddress] = useState('0.0.0.0');
-    const [peerIP, setPeerIP] = useState('');
-    const [peerName, setPeerName] = useState('');
+    const [discoveredPeers, setDiscoveredPeers] = useState([]);
     const [interfaces, setInterfaces] = useState([]);
     const [progress, setProgress] = useState(0);
     const [discoveryStatus, setDiscoveryStatus] = useState('');
@@ -14,18 +13,24 @@ const NetworkDetector = ({ onConnectionUpdate, mode }) => {
         { id: 1, name: 'Scan interfaces', status: 'pending' },
         { id: 2, name: 'Assign IP', status: 'pending' },
         { id: 3, name: 'Configure network', status: 'pending' },
-        { id: 4, name: 'Discover peer', status: 'pending' },
-        { id: 5, name: 'Establish connection', status: 'pending' }
+        { id: 4, name: 'Discover devices', status: 'pending' }
     ]);
     const prevWiredConnected = useRef(false);
     const connectionStatusRef = useRef(connectionStatus);
     const ipAddressRef = useRef(ipAddress);
     const connectionTimerRef = useRef(null);
+    const lastEmittedStatus = useRef('');
+    const lastPeerCount = useRef(0);
+    const discoveredPeersRef = useRef([]); // Critical for effect stability
 
     // Update refs when state changes
     useEffect(() => {
         connectionStatusRef.current = connectionStatus;
     }, [connectionStatus]);
+
+    useEffect(() => {
+        discoveredPeersRef.current = discoveredPeers;
+    }, [discoveredPeers]);
 
     useEffect(() => {
         ipAddressRef.current = ipAddress;
@@ -86,9 +91,8 @@ const NetworkDetector = ({ onConnectionUpdate, mode }) => {
     const startAutoConfiguration = useCallback(async (bridgeInstance) => {
         const bridge = bridgeInstance || (await import('../services/electronBridge')).default;
 
-        setConnectionStatus('configuring');
-        onConnectionUpdate('configuring', '', 0, ipAddressRef.current);
-        setProgress(0);
+        setConnectionStatus('scanning');
+        setProgress(10);
 
         // Step 1: Detect interfaces
         await detectNetworkInterfaces(bridge);
@@ -113,6 +117,7 @@ const NetworkDetector = ({ onConnectionUpdate, mode }) => {
         }
 
         setProgress(60);
+        setConnectionStatus('scanning'); // Trigger back to scanning for peer discovery
 
         // Step 4: Discover peer
         updateStep(4, 'in-progress');
@@ -127,28 +132,38 @@ const NetworkDetector = ({ onConnectionUpdate, mode }) => {
 
     // Moved out of useEffect to be accessible in JSX
     const handlePeerDiscovered = useCallback((peer) => {
-        setPeerIP(peer.ip);
-        setPeerName(peer.name);
+        setDiscoveredPeers(prev => {
+            const exists = prev.find(p => p.ip === peer.ip);
+            if (exists && exists.name === peer.name) return prev;
 
-        setConnectionStatus(prevStatus => {
-            if (prevStatus === 'connected') return prevStatus;
+            const newList = exists
+                ? prev.map(p => p.ip === peer.ip ? peer : p)
+                : [...prev, peer];
 
-            console.log('Peer found, updating steps:', peer.ip);
-            updateStep(4, 'completed');
-            updateStep(5, 'in-progress');
-
-            if (connectionTimerRef.current) clearTimeout(connectionTimerRef.current);
-            connectionTimerRef.current = setTimeout(() => {
-                updateStep(5, 'completed');
-                setProgress(100);
-                setConnectionStatus('connected');
-                onConnectionUpdate('connected', peer.ip, 1000, ipAddressRef.current, peer.name);
-                connectionTimerRef.current = null;
-            }, 300);
-
-            return 'connected';
+            return newList;
         });
-    }, [onConnectionUpdate, updateStep]);
+
+        updateStep(4, 'completed');
+        setProgress(100);
+        setConnectionStatus('connected');
+    }, [updateStep]);
+
+    // Auto-select first peer ONLY when peers change AND none are selected
+    useEffect(() => {
+        if (discoveredPeers.length > 0 && selectedPeers.length === 0) {
+            onSelectPeers([discoveredPeers[0].ip]);
+        }
+    }, [discoveredPeers.length, selectedPeers.length, onSelectPeers]);
+
+    useEffect(() => {
+        // Sync with App state - providing current IP and name for legacy compatibility if needed
+        // Only trigger update if status or peer count changed to avoid redundant loops
+        if (connectionStatus !== lastEmittedStatus.current || discoveredPeers.length !== lastPeerCount.current) {
+            onConnectionUpdate(connectionStatus, discoveredPeers[0]?.ip || '', 0, ipAddress, discoveredPeers[0]?.name || '', discoveredPeers);
+            lastEmittedStatus.current = connectionStatus;
+            lastPeerCount.current = discoveredPeers.length;
+        }
+    }, [connectionStatus, discoveredPeers, ipAddress, onConnectionUpdate]);
 
     // Manual connect with verification
     const handleManualConnect = useCallback(async (ip) => {
@@ -173,14 +188,14 @@ const NetworkDetector = ({ onConnectionUpdate, mode }) => {
 
     // Manual scan
     const handleManualScan = useCallback(() => {
-        setPeerIP('');
-        setPeerName('');
+        setDiscoveredPeers([]);
+        onSelectPeers([]);
         setDiscoveryStatus('');
         setConfigSteps(prev =>
             prev.map(step => ({ ...step, status: 'pending' }))
         );
         startAutoConfiguration();
-    }, [startAutoConfiguration]);
+    }, [startAutoConfiguration, onSelectPeers]);
 
 
     const handleInterfacesChanged = useCallback((interfaces) => {
@@ -211,14 +226,20 @@ const NetworkDetector = ({ onConnectionUpdate, mode }) => {
 
     // --- Main Effect ---
 
-    // Detect network on component mount
+    // Detect network on component mount - Listeners set up ONCE
     useEffect(() => {
         let bridge;
+
+        // Use a wrapper to always use the freshest ref
+        const onPeer = (peer) => handlePeerDiscovered(peer);
+        const onIface = (ifaces) => handleInterfacesChanged(ifaces);
+        const onDiscovery = (status) => handleDiscoveryStatus(status);
+
         import('../services/electronBridge').then(module => {
             bridge = module.default;
-            bridge.on('peer-found', handlePeerDiscovered);
-            bridge.on('network-interfaces-changed', handleInterfacesChanged);
-            bridge.on('discovery-status', handleDiscoveryStatus);
+            bridge.on('peer-found', onPeer);
+            bridge.on('network-interfaces-changed', onIface);
+            bridge.on('discovery-status', onDiscovery);
 
             if (mode === 'sender' || mode === 'receiver') {
                 startAutoConfiguration(bridge);
@@ -227,13 +248,14 @@ const NetworkDetector = ({ onConnectionUpdate, mode }) => {
 
         return () => {
             if (bridge) {
-                bridge.off('peer-found', handlePeerDiscovered);
-                bridge.off('network-interfaces-changed', handleInterfacesChanged);
-                bridge.off('discovery-status', handleDiscoveryStatus);
+                bridge.off('peer-found', onPeer);
+                bridge.off('network-interfaces-changed', onIface);
+                bridge.off('discovery-status', onDiscovery);
             }
             if (connectionTimerRef.current) clearTimeout(connectionTimerRef.current);
         };
-    }, [mode, startAutoConfiguration, handlePeerDiscovered, handleInterfacesChanged, handleDiscoveryStatus]);
+        // Dependency array MUST be stable to prevent listener re-registration thrashing
+    }, []); // Run once on mount
 
     // Get status icon
     const getStatusIcon = useCallback((status) => {
@@ -260,12 +282,16 @@ const NetworkDetector = ({ onConnectionUpdate, mode }) => {
             <div className="detector-header">
                 <h2>
                     <span className="header-icon">🌐</span>
-                    Network Configuration
+                    Devices on Network
                     <span className="mode-badge">{(mode || 'sender').toUpperCase()}</span>
                 </h2>
-                <div className="status-badge-container">
-                    <div className={`status-badge ${connectionStatus}`}>
-                        {connectionStatus.toUpperCase()}
+                <div className="discovery-actions">
+                    <div className={`broadcast-toggle ${isBroadcast ? 'active' : ''}`} onClick={onToggleBroadcast}>
+                        <span className="toggle-icon">{isBroadcast ? '📻' : '🔘'}</span>
+                        <span className="toggle-label">Broadcast Mode</span>
+                        <div className="toggle-switch">
+                            <div className="toggle-handle"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -302,29 +328,39 @@ const NetworkDetector = ({ onConnectionUpdate, mode }) => {
                 </div>
             </div>
 
-            {/* Network Interfaces */}
+            {/* Connected Devices List */}
             <div className="interface-list">
-                <h3>Detected Interfaces:</h3>
-                {interfaces.length > 0 ? (
-                    <div className="interfaces-grid">
-                        {interfaces.map(iface => (
-                            <div key={iface.id || iface.name} className={`interface-card ${iface.connected ? 'connected' : 'disconnected'}`}>
-                                <div className="interface-icon">
-                                    {iface.type === 'wired' ? '🔌' : '📡'}
+                <h3>Connected Devices (Select to Send):</h3>
+                {discoveredPeers.length > 0 ? (
+                    <div className="peers-grid">
+                        {discoveredPeers.map(peer => (
+                            <div
+                                key={peer.ip}
+                                className={`peer-card ${selectedPeers.includes(peer.ip) ? 'selected' : ''}`}
+                                onClick={() => {
+                                    if (selectedPeers.includes(peer.ip)) {
+                                        onSelectPeers(selectedPeers.filter(ip => ip !== peer.ip));
+                                    } else {
+                                        onSelectPeers([...selectedPeers, peer.ip]);
+                                    }
+                                }}
+                            >
+                                <div className="peer-checkbox">
+                                    <input type="checkbox" checked={selectedPeers.includes(peer.ip)} readOnly />
                                 </div>
-                                <div className="interface-info">
-                                    <div className="interface-name">{iface.name}</div>
-                                    <div className="interface-type">{iface.type}</div>
-                                    <div className="interface-speed">{iface.speed}</div>
+                                <div className="peer-icon">💻</div>
+                                <div className="peer-info">
+                                    <div className="peer-name">{peer.name}</div>
+                                    <div className="peer-ip">{peer.ip}</div>
                                 </div>
-                                <div className="interface-status">
-                                    {iface.connected ? '✅ Connected' : '❌ Disconnected'}
+                                <div className="peer-status">
+                                    {selectedPeers.includes(peer.ip) ? '🎯 Target' : 'READY'}
                                 </div>
                             </div>
                         ))}
                     </div>
                 ) : (
-                    <div className="no-interfaces">No network interfaces detected</div>
+                    <div className="no-interfaces">Scanning for devices...</div>
                 )}
             </div>
 
@@ -344,7 +380,7 @@ const NetworkDetector = ({ onConnectionUpdate, mode }) => {
                             </div>
                         )}
 
-                        {connectionStatus === 'configuring' && !peerIP && (
+                        {connectionStatus === 'configuring' && discoveredPeers.length === 0 && (
                             <div className="manual-connect">
                                 <p>Taking too long? Enter Peer IP manually:</p>
                                 <div className="manual-input-group">
@@ -368,18 +404,13 @@ const NetworkDetector = ({ onConnectionUpdate, mode }) => {
                 </div>
 
                 {/* Connection Info */}
-                {connectionStatus === 'connected' && (
+                {discoveredPeers.length > 0 && (
                     <div className="connection-info">
                         <div className="info-card success">
-                            <div className="info-icon">✅</div>
+                            <div className="info-icon">📡</div>
                             <div className="info-content">
-                                <h4>Ready for Transfer!</h4>
-                                <p>Secure connection established with <strong>{peerName || peerIP}</strong> at {peerIP}</p>
-                                <div className="connection-stats">
-                                    <span className="stat-item">⚡ Active</span>
-                                    <span className="stat-item">🔒 Secure</span>
-                                    <span className="stat-item">📶 Connection Established</span>
-                                </div>
+                                <h4>{isBroadcast ? 'Full-Duplex Mode Active' : 'Devices Found'}</h4>
+                                <p>Discovered <strong>{discoveredPeers.length}</strong> devices. {isBroadcast ? 'Ready to send/receive simultaneously.' : 'Select targets above to start sharing.'}</p>
                             </div>
                         </div>
                     </div>

@@ -17,9 +17,12 @@ const App = () => {
         peerName: '',
         transferActive: false,
         mode: 'sender',
+        isBroadcast: false,
         speed: 0,
         totalTransferred: 0,
-        downloadsDir: ''
+        downloadsDir: '',
+        peers: [], // All discovered peers
+        selectedPeers: [] // IPs of selected peers for sending
     });
 
     const [transfers, setTransfers] = useState([]);
@@ -37,14 +40,14 @@ const App = () => {
         const now = new Date();
         const timeString = now.toLocaleTimeString();
         const initialLogs = [
-            { id: `log_init_1_${Date.now()}`, type: 'system', message: 'SafeShare LAN v1.0 initialized', timestamp: now, time: timeString },
+            { id: `log_init_1_${Date.now()}`, type: 'system', message: 'SafeShare LAN v2.0 initialized', timestamp: now, time: timeString },
             { id: `log_init_2_${Date.now()}`, type: 'system', message: 'Ready to detect network connections', timestamp: now, time: timeString }
         ];
         setLogs(initialLogs);
     }, []);
 
     // Add log entry
-    const addLog = (type, message) => {
+    const addLog = React.useCallback((type, message) => {
         const now = new Date();
         const timeString = now.toLocaleTimeString();
         const newLog = {
@@ -55,135 +58,189 @@ const App = () => {
             time: timeString
         };
         setLogs(prev => [newLog, ...prev.slice(0, 49)]); // Keep last 50 logs
-    };
+    }, []);
 
     // Handle connection updates from NetworkDetector
-    const handleConnectionUpdate = React.useCallback((status, ip, speed = 0, localIP = null, peerName = '') => {
+    const handleConnectionUpdate = React.useCallback((status, ip, speed = 0, localIP = null, peerName = '', allPeers = []) => {
+        let statusChanged = false;
+
         setAppState(prev => {
             const updates = {
                 connection: status,
-                peerIP: ip,
-                peerName: peerName || prev.peerName,
+                peerIP: ip || (allPeers.length > 0 ? allPeers[0].ip : prev.peerIP),
+                peerName: peerName || (allPeers.length > 0 ? allPeers[0].name : prev.peerName),
+                peers: allPeers,
                 speed: speed
             };
             if (localIP) updates.localIP = localIP;
 
-            if (prev.connection === status && prev.peerIP === ip && prev.peerName === updates.peerName && prev.speed === speed && (!localIP || prev.localIP === localIP)) return prev;
+            if (prev.connection !== status) {
+                statusChanged = true;
+            }
+
             return {
                 ...prev,
                 ...updates
             };
         });
 
-        const statusMessages = {
-            'scanning': 'Scanning for network interfaces...',
-            'configuring': 'Configuring network settings...',
-            'connected': `Connected to ${peerName || ip}`,
-            'disconnected': 'Disconnected from peer',
-            'error': 'Connection error occurred'
-        };
+        if (statusChanged) {
+            const statusMessages = {
+                'scanning': 'Scanning for devices...',
+                'configuring': 'Configuring network settings...',
+                'connected': `Connected and ready`,
+                'disconnected': 'Disconnected',
+                'error': 'Connection error occurred'
+            };
 
-        addLog('network', statusMessages[status] || `Connection status: ${status}`);
-    }, []);
+            addLog('network', statusMessages[status] || `Connection status: ${status}`);
+        }
+    }, [addLog]);
 
     // Initialize bridge listeners
     useEffect(() => {
-        import('../services/electronBridge').then(module => {
-            const bridge = module.default;
+        let bridge;
 
-            const handleTransferProgress = (data) => {
-                setTransfers(prev => {
-                    const existingIndex = prev.findIndex(t => t.id === data.transferId);
+        const handleTransferProgress = (data) => {
+            // Determine if this is a new transfer we haven't seen yet
+            setTransfers(prev => {
+                const index = prev.findIndex(t => t.id === data.transferId);
+                if (index !== -1) {
+                    return prev.map((t, i) => {
+                        if (i !== index) return t;
 
-                    if (existingIndex > -1) {
-                        return prev.map((t, i) => {
-                            if (i !== existingIndex) return t;
-
-                            const updatedFiles = t.files ? t.files.map(f =>
-                                f.name === data.filename ? { ...f, progress: data.progress, status: 'transferring' } : f
-                            ) : [{ name: data.filename, size: data.total, progress: data.progress, status: 'transferring' }];
-
-                            return {
-                                ...t,
-                                status: 'transferring',
-                                progress: data.progress,
-                                speed: data.speed || t.speed,
-                                files: updatedFiles
-                            };
-                        });
-                    } else if (data.status === 'starting' || data.status === 'receiving' || data.status === 'sending' || data.status === 'connecting') {
-                        // New transfer entry
-                        const newTransfer = {
-                            id: data.transferId || `transfer_${Date.now()}`,
-                            files: [{ name: data.filename, size: data.total, progress: data.progress || 0, status: 'transferring' }],
-                            status: 'transferring',
-                            progress: data.progress || 0,
-                            startTime: new Date(),
-                            peerIP: data.peerIP || peerIPRef.current,
-                            speed: data.speed || 0
-                        };
-                        addLog('transfer', `${data.status === 'sending' ? 'Sending' : 'Receiving'}: ${data.filename}`);
-                        return [newTransfer, ...prev];
-                    }
-                    return prev;
-                });
-
-                // No longer calling setAppState here, synced via useEffect
-            };
-
-            const handleTransferComplete = (data) => {
-                setTransfers(prev => {
-                    const exists = prev.some(t => t.id === data.transferId);
-                    if (!exists) {
-                        const newTransfer = {
-                            id: data.transferId,
-                            files: [{ name: data.filename, size: data.total || 0, progress: 100, status: 'completed' }],
-                            status: 'completed',
-                            progress: 100,
-                            startTime: new Date(),
-                            endTime: new Date(),
-                            peerIP: data.peerIP || peerIPRef.current,
-                            speed: 0,
-                            path: data.path
-                        };
-                        return [newTransfer, ...prev];
-                    }
-
-                    const updated = prev.map(t => {
-                        if (t.id !== data.transferId) return t;
-
+                        // Update files progress
                         const updatedFiles = t.files.map(f =>
-                            f.name === data.filename ? { ...f, status: 'completed', progress: 100 } : f
+                            f.name === data.filename ? {
+                                ...f,
+                                progress: data.progress,
+                                status: data.status === 'connecting' ? 'transferring' : (data.status || 'transferring'),
+                                size: data.total || f.size
+                            } : f
                         );
-
-                        const allCompleted = updatedFiles.every(f => f.status === 'completed');
 
                         return {
                             ...t,
-                            files: updatedFiles,
-                            status: allCompleted ? 'completed' : 'transferring',
-                            progress: allCompleted ? 100 : t.progress,
-                            endTime: allCompleted ? new Date() : t.endTime,
-                            path: data.path || t.path
+                            status: data.status === 'connecting' ? 'transferring' : (data.status || 'transferring'),
+                            progress: data.progress,
+                            speed: data.speed || t.speed,
+                            peerIP: data.peerIP || t.peerIP,
+                            peerName: data.senderName || t.peerName,
+                            size: data.total || t.size,
+                            files: updatedFiles
                         };
                     });
+                } else {
+                    // New transfer (likely incoming)
+                    const newTransfer = {
+                        id: data.transferId || `transfer_${Date.now()}`,
+                        name: data.filename || 'Incoming File',
+                        files: [{
+                            name: data.filename,
+                            size: data.total,
+                            progress: data.progress || 0,
+                            status: data.status || 'transferring'
+                        }],
+                        size: data.total || 0,
+                        status: data.status || 'transferring',
+                        progress: data.progress || 0,
+                        startTime: new Date(),
+                        peerIP: data.peerIP || peerIPRef.current,
+                        peerName: data.senderName || '',
+                        speed: data.speed || 0,
+                        isIncoming: data.status === 'receiving' || data.status === 'connecting'
+                    };
 
-                    return updated;
+                    setTimeout(() => {
+                        addLog('transfer', `${newTransfer.isIncoming ? 'Receiving from' : 'Sending to'} ${data.senderName || data.peerIP || 'peer'}: ${data.filename}`);
+                    }, 0);
+
+                    return [newTransfer, ...prev];
+                }
+            });
+        };
+
+        const handleTransferComplete = (data) => {
+            setTransfers(prev => {
+                const exists = prev.some(t => t.id === data.transferId);
+                if (!exists) {
+                    const newTransfer = {
+                        id: data.transferId,
+                        files: [{ name: data.filename, size: data.total || 0, progress: 100, status: 'completed' }],
+                        size: data.total || 0,
+                        status: 'completed',
+                        progress: 100,
+                        startTime: new Date(),
+                        endTime: new Date(),
+                        peerIP: data.peerIP || peerIPRef.current,
+                        peerName: data.senderName || '',
+                        speed: 0,
+                        isIncoming: true // If it wasn't tracked before, it's likely an incoming file we just finished
+                    };
+                    return [newTransfer, ...prev];
+                }
+
+                const updated = prev.map(t => {
+                    if (t.id !== data.transferId) return t;
+
+                    const updatedFiles = t.files.map(f =>
+                        f.name === data.filename ? { ...f, status: 'completed', progress: 100 } : f
+                    );
+
+                    const allCompleted = updatedFiles.every(f => f.status === 'completed');
+
+                    return {
+                        ...t,
+                        files: updatedFiles,
+                        status: allCompleted ? 'completed' : 'transferring',
+                        progress: allCompleted ? 100 : t.progress,
+                        endTime: allCompleted ? new Date() : t.endTime,
+                        path: data.path || t.path
+                    };
                 });
-                addLog('success', `Transfer completed: ${data.filename}`);
-            };
+
+                return updated;
+            });
+            addLog('success', `Transfer completed: ${data.filename}`);
+        };
+
+        const handleTransferError = (data) => {
+            setTransfers(prev => prev.map(t => {
+                if (t.id !== data.transferId) return t;
+                return {
+                    ...t,
+                    status: 'failed',
+                    error: data.error
+                };
+            }));
+            addLog('error', `Transfer failed: ${data.error || 'Unknown error'}`);
+        };
+
+        const setupBridge = async () => {
+            const module = await import('../services/electronBridge');
+            bridge = module.default;
 
             bridge.on('transfer-progress', handleTransferProgress);
             bridge.on('transfer-complete', handleTransferComplete);
+            bridge.on('transfer-error', handleTransferError);
 
-            // Fetch initial downloads directory
-            bridge.getDownloadDirectory().then(result => {
-                if (result.success) {
-                    setAppState(prev => ({ ...prev, downloadsDir: result.path }));
-                }
-            });
-        });
-    }, [addLog]); // Added addLog to deps for completeness
+            // Fetch initial downloads directory ONLY ONCE
+            const dirResult = await bridge.getDownloadDirectory();
+            if (dirResult.success) {
+                setAppState(prev => ({ ...prev, downloadsDir: dirResult.path }));
+            }
+        };
+
+        setupBridge();
+
+        return () => {
+            if (bridge) {
+                bridge.off('transfer-progress', handleTransferProgress);
+                bridge.off('transfer-complete', handleTransferComplete);
+                bridge.off('transfer-error', handleTransferError);
+            }
+        };
+    }, [addLog]); // Run once on mount
 
     // Sync appState and activeTransfer with transfers array
     useEffect(() => {
@@ -202,6 +259,14 @@ const App = () => {
         });
     }, [transfers]);
 
+    const handleToggleBroadcast = React.useCallback(() => {
+        setAppState(prev => ({ ...prev, isBroadcast: !prev.isBroadcast }));
+    }, []);
+
+    const handleSelectPeers = React.useCallback((peers) => {
+        setAppState(prev => ({ ...prev, selectedPeers: peers }));
+    }, []);
+
     // Cleanup when changing mode
     useEffect(() => {
         // When switching modes, if we have active transfers, we might want to warn
@@ -211,30 +276,51 @@ const App = () => {
 
     // Handle file transfer start
     const handleTransferStart = async (transferData) => {
-        const newTransfer = {
-            id: `send_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        const targetPeers = appState.isBroadcast ? appState.selectedPeers : [appState.peerIP];
+
+        if (targetPeers.length === 0) {
+            addLog('error', 'No target peers selected');
+            return;
+        }
+
+        const baseId = `send_${Date.now()}`;
+        const newTransfers = targetPeers.map(peerIP => ({
+            id: `${baseId}_${peerIP.replace(/\./g, '_')}`,
             ...transferData,
-            status: 'queued',
+            name: transferData.files.length === 1 ? transferData.files[0].name : `${transferData.files.length} file(s)`,
+            peerIP,
+            status: 'transferring',
             startTime: new Date(),
             progress: 0,
-            speed: 0
-        };
+            speed: 0,
+            isIncoming: false
+        }));
 
-        setTransfers(prev => [newTransfer, ...prev]);
-        setActiveTransfer(newTransfer);
+        setTransfers(prev => [...newTransfers, ...prev]);
+        setActiveTransfer(newTransfers[0]); // Show the first one as active
         setAppState(prev => ({ ...prev, transferActive: true }));
 
-        addLog('transfer', `Transfer queued: ${transferData.files.length} file(s)`);
+        addLog('transfer', `Initiating transfer to ${targetPeers.length} device(s)`);
 
         try {
             const bridge = (await import('../services/electronBridge')).default;
-            await bridge.transferFiles({
-                ...transferData,
-                transferId: newTransfer.id
-            });
+
+            addLog('system', 'System Diagnosis: Link stable. Ready for audio, video, and document broadcast.');
+
+            await Promise.all(targetPeers.map(peerIP => {
+                const transferId = `${baseId}_${peerIP.replace(/\./g, '_')}`;
+                return bridge.transferFiles({
+                    ...transferData,
+                    peerIP,
+                    transferId
+                });
+            }));
         } catch (e) {
             addLog('error', `Transfer failed: ${e.message}`);
-            setTransfers(prev => prev.map(t => t.id === newTransfer.id ? { ...t, status: 'failed' } : t));
+            const affectedIds = newTransfers.map(t => t.id);
+            setTransfers(prev => prev.map(t =>
+                affectedIds.includes(t.id) ? { ...t, status: 'failed' } : t
+            ));
         }
     };
 
@@ -331,7 +417,7 @@ const App = () => {
                     <h1 className="app-title">
                         <span className="app-icon">🔗</span>
                         SafeShare
-                        <span className="app-version">v1.0</span>
+                        <span className="app-version">v2.0</span>
                     </h1>
                     <p className="app-tagline">
                         Direct Ethernet File Transfer • No Configuration Needed • Offline Operation
@@ -360,15 +446,16 @@ const App = () => {
                         <div className={`status-dot ${appState.connection}`}></div>
                         <div className="status-info">
                             <span className="status-text">
-                                {appState.connection === 'connected'
-                                    ? `Connected to ${appState.peerIP}`
-                                    : (typeof appState.connection === 'string' && appState.connection.length > 0
-                                        ? appState.connection.charAt(0).toUpperCase() + appState.connection.slice(1)
-                                        : 'Disconnected')
+                                {appState.isBroadcast ? 'Full-Duplex Mode' :
+                                    (appState.connection === 'connected'
+                                        ? `Connected (${appState.peers.length} devices)`
+                                        : (typeof appState.connection === 'string' && appState.connection.length > 0
+                                            ? appState.connection.charAt(0).toUpperCase() + appState.connection.slice(1)
+                                            : 'Disconnected'))
                                 }
                             </span>
                             {appState.speed > 0 && (
-                                <span className="status-speed">⚡ {appState.speed} MB/s</span>
+                                <span className="status-speed">⚡ {appState.speed.toFixed(1)} MB/s</span>
                             )}
                         </div>
                     </div>
@@ -383,6 +470,10 @@ const App = () => {
                         <NetworkDetector
                             onConnectionUpdate={handleConnectionUpdate}
                             mode={appState.mode}
+                            isBroadcast={appState.isBroadcast}
+                            onToggleBroadcast={handleToggleBroadcast}
+                            selectedPeers={appState.selectedPeers}
+                            onSelectPeers={handleSelectPeers}
                         />
                     </div>
                     <div className="layout-cell">
@@ -401,6 +492,8 @@ const App = () => {
                         <FileTransfer
                             connectionStatus={appState.connection}
                             peerIP={appState.peerIP}
+                            selectedPeers={appState.selectedPeers}
+                            isBroadcast={appState.isBroadcast}
                             mode={appState.mode}
                             onTransferStart={handleTransferStart}
                             activeTransfer={activeTransfer}

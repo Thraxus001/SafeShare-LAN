@@ -329,6 +329,15 @@ const TransferQueue = ({ transfers, clearTransfers, activeTransfer, onTransferAc
                                                     <span className="transfer-time">
                                                         {formatTime(transfer.startTime)}
                                                     </span>
+                                                    {(transfer.peerName || transfer.peerIP) && (
+                                                        <>
+                                                            <span className="meta-separator">•</span>
+                                                            <span className="transfer-peer" title={transfer.peerIP}>
+                                                                {transfer.isIncoming ? 'From: ' : 'To: '}
+                                                                <strong>{transfer.peerName || transfer.peerIP}</strong>
+                                                            </span>
+                                                        </>
+                                                    )}
                                                     {transfer.speed > 0 && (
                                                         <>
                                                             <span className="meta-separator">•</span>
@@ -499,4 +508,4 @@ const TransferQueue = ({ transfers, clearTransfers, activeTransfer, onTransferAc
     );
 };
 
-export default TransferQueue;
+export default React.memo(TransferQueue);
